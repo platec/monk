@@ -56,7 +56,7 @@ class Monk:
             if len(buffered) == 1:
                 code.add_line('append_result(%s)' % buffered[0])
             elif len(buffered) > 1:
-                code.add_line('extend_result([%s])' % ''.join(buffered))
+                code.add_line('extend_result([%s])' % ','.join(buffered))
             del buffered[:]
 
         template_settings = {
@@ -103,12 +103,14 @@ class Monk:
 
     def _do_dots(self, value, *dots):
         for dot in dots:
-            try:
-                value = getattr(value, dot)
-            except AttributeError:
-                value = value[dot]
+            # try:
+            #     value = getattr(value, dot, '')
+            # except AttributeError:
+            #     value = value[dot]
             if callable(value):
                 value = value()
+            else:
+                value = getattr(value, dot, '')
         return value
     
     def _syntax_error(self, msg, thing):

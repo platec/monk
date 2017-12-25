@@ -1,25 +1,23 @@
-from monk import Monk, CodeBuilder
+from monk2 import CodeBuilder, MicroTemplate
+import re
+
+def generate_tokens():
+    pattern = re.compile(r'{{(?P<expression>.*?)}}|{%(?P<logic>.*?)%}|{#(?P<comment>.*?)#}')
+    f = open('index.html', 'rt')
+    page = f.read()
+    scanner = pattern.scanner(page)
+    for token in iter(scanner.search, None):
+        yield token.lastgroup, token.group(token.lastgroup).strip()
+    f.close()
 
 def test():
-    page = """
-    <h1>{{greet}}</h1>
-    <ul>
-        {% for title in titles %}
-            <li>{{ title | upper | local }}</li>
-        {% endfor %}
-    </ul>
-    {% if shown %}
-        <div>show something</div>
-    {% endif %}
-    """
+    for t in generate_tokens():
+        if t[0] != 'comment':
+            print(t)
 
-    page2 = """
-<h1>{{greet}}</h1>
-    """
-
-    m = Monk(page)
-    result = m.render({'greet': 'hello'})
-    print(result)
 
 if __name__ == '__main__':
-    test()
+    f = open('index.html', 'rt')
+    text = f.read()    
+    t = MicroTemplate(text, {'name': 'test'})
+    f.close()
