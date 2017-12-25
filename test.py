@@ -1,4 +1,3 @@
-from monk2 import CodeBuilder, MicroTemplate
 import re
 
 def generate_tokens():
@@ -18,6 +17,17 @@ def test():
 
 if __name__ == '__main__':
     f = open('index.html', 'rt')
-    text = f.read()    
-    t = MicroTemplate(text, {'name': 'test'})
+    text = f.read()
+    import templite
+    context = {
+        'greet': 'hello this is a test', 
+        'title': 'shit',
+        'show': True,
+        'titles': [1,2,3],
+        'upper': lambda s: s.upper
+    }
+    t = templite.Templite(text)
+    result = t.render(context)
+    print(result)
     f.close()
+
