@@ -1,4 +1,5 @@
 import re
+from monk import Monk
 
 def generate_tokens():
     pattern = re.compile(r'{{(?P<expression>.*?)}}|{%(?P<logic>.*?)%}|{#(?P<comment>.*?)#}')
@@ -27,6 +28,7 @@ if __name__ == '__main__':
         'upper': lambda s: s.upper
     }
     t = templite.Templite(text)
+    # t = Monk(text)
     result = t.render(context)
     print(result)
     f.close()

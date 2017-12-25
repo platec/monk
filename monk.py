@@ -44,11 +44,11 @@ class Monk:
         code = CodeBuilder()
         code.add_line('def render_function(context, do_dots):')
         code.indent()
-        section = code.add_section()
-        section.add_line('result = []')
-        section.add_line('append_result = result.append')
-        section.add_line('extend_result = result.extend')
-        section.add_line('to_str = str')
+        vars_code = code.add_section()
+        code.add_line('result = []')
+        code.add_line('append_result = result.append')
+        code.add_line('extend_result = result.extend')
+        code.add_line('to_str = str')
 
         buffered = []
 
@@ -65,8 +65,7 @@ class Monk:
             'comment': r'{#.*?#}'  # 注释
         }
 
-        pattern = '(?s)' +'(' + '|'.join([template_settings[key] for key in template_settings]) + ')'
-        print(pattern)
+        pattern = re.compile('(' + '|'.join(template_settings[key] for key in template_settings) + ')')
         tokens = re.split(pattern, text)
         print(tokens)
         for token in tokens:
@@ -75,11 +74,10 @@ class Monk:
             if token.startswith('{{'):
                 expr = self._expr_code(token[2:-2].strip())
                 buffered.append('to_str(%s)' % expr)
-                # print(self._expr_code(token[2:-2].strip()))
+                self.all_vars.add(expr)
             elif token.startswith('{%'):
                 flush_output()
                 words = token[2:-2].strip().split()
-                print(words)
     
         self._render_function = code.get_globals()['render_function']
 
