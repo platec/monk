@@ -51,8 +51,7 @@ class Monk:
         code.add_line('extend_result = result.extend')
         code.add_line('to_str = str')
 
-        local_vars = set()
-        loop_vars = set()
+        self.vars_stack = []
         
         render_context = dict(self.context)                    
         for name in render_context.keys():
@@ -70,6 +69,7 @@ class Monk:
             elif name == 'logic':
                 expr = expr.strip()
                 if expr.startswith('if'):
+                    self.vars_stack.append(expr)
                     words = expr.split()
                     if len(words) == 1:
                         self._syntax_error('syntax_error, can not parse if')
@@ -78,21 +78,22 @@ class Monk:
                     code.add_line('if c_%s:' % jouken)
                     code.indent()
                 elif expr.startswith('for'):
+                    self.vars_stack.append(expr)
                     words = expr.split()
                     item = words[1]
                     items = words[3]
-                    code.add_line("f_%s = context['%s']" %(items, items))
-                    code.add_line("for c_%s in f_%s:" %(item, items))
+                    code.add_line("for %s in c_%s:" %(item, items))
                     code.indent()
                 elif expr.startswith('end'):
+                    self.vars_stack.pop()
                     code.dedent()
             elif name == 'comment':
                 continue                    
                          
         code.add_line("return ''.join(result)")
         code.dedent()
-        print(code.get_globals()['render_function'](render_context, self._do_dots))
-        # print(code)
+        self._render_function = code.get_globals()['render_function']
+        print(code)
 
     def _generate_tokens(self, text):
         pattern = re.compile(r'{{(?P<expression>.*?)}}|{%(?P<logic>.*?)%}|{#(?P<comment>.*?)#}')
@@ -120,7 +121,7 @@ class Monk:
             code = dots[0]
             code = "do_dots(c_%s, '%s')" % (code.strip(), "','".join(c.strip() for c in dots[1:]))
         else:
-            code = "c_" + expr
+            code = "c_" + expr if len(self.vars_stack) == 0 else expr
         return code
 
     def _do_dots(self, value, *dots):
@@ -135,6 +136,12 @@ class Monk:
 
     def _syntax_error(self, msg, thing):
         raise TempliteSyntaxError("%s: %r" % (msg, thing))
+
+    def render(self, context=None):
+        render_context = dict(self.context)
+        if context:
+            render_context.update(context)
+        return self._render_function(render_context, self._do_dots)
 
 
 class TempliteSyntaxError(ValueError):
