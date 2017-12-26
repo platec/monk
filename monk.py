@@ -54,20 +54,32 @@ class Monk:
         tokens = self._generate_tokens(text)
         for token in tokens:
             name = token[0]
-            expr = token[1].strip()
+            expr = token[1]
             if name == 'html':
                 code.add_line('append_result("""%s""")' % expr)
             elif name == 'expression':
+                expr = expr.strip()
                 code.add_line("c_%s = context['%s']" %(expr, expr))
                 code.add_line("append_result(to_str(c_%s))" % expr)
             elif name == 'comment':
                 continue
-            else:
-                pass
+            elif name == 'logic':
+                expr = expr.strip()
+                if expr.startswith('if'):
+                    words = expr.split()
+                    jouken = words[1]
+                    code.add_line("c_%s = context['%s']" %(jouken, jouken))
+                    code.add_line('if c_%s:' % jouken)
+                    code.indent()
+                elif expr.startswith('end'):
+                    code.dedent()
+                else:
+                    pass
+                    
         code.add_line("return ''.join(result)")
         code.dedent()
         print(code.get_globals()['render_function'](self.context, None))
-        print(code)
+        # print(code)
 
     def _generate_tokens(self, text):
         pattern = re.compile(
