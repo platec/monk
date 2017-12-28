@@ -1,4 +1,5 @@
 import re
+import time
 
 
 class CodeBuilder:
@@ -9,7 +10,7 @@ class CodeBuilder:
         self.indent_level = indent
 
     def add_line(self, line):
-        self.code.extend([" " * self.indent_level + line + "\n"])
+        self.code.extend([' ' * self.indent_level + line + '\n'])
 
     def indent(self):
         self.indent_level += self.INDENT_STEP
@@ -45,17 +46,16 @@ class Monk:
         vars_code = code.add_section()
         code.add_line("result = []")
         code.add_line("append_result = result.append")
-        code.add_line("extend_result = result.extend")
         code.add_line("to_str = str")
 
-        self.loop_vars_stack = []
+        #save loop function name
+        self.for_loop_func = []
         
         render_context = dict(self.context)                    
         for name in render_context.keys():
-            code.add_line("c_%s = context['%s']" % (name, name))           
+            vars_code.add_line('%s = context["%s"]' % (name, name))           
 
-        tokens = self._generate_tokens(text)
-        for token in tokens:
+        for token in self._generate_tokens(text):
             name = token[0]
             expr = token[1]
             if name == "html":
@@ -66,39 +66,33 @@ class Monk:
             elif name == "logic":
                 expr = expr.strip()
                 if expr.startswith("if"):
-                    self.loop_vars_stack.append(expr)
-                    words = expr.split()
-                    if len(words) == 1:
-                        self._syntax_error("can not parse if", expr)
-                    jouken = words[1]
-                    code.add_line("c_%s = context['%s']" % (jouken, jouken))
-                    code.add_line("if c_%s:" % jouken)
+                    code.add_line("%s:" % expr)
                     code.indent()
                 elif expr == "else":
                     code.dedent()
                     code.add_line("else:")
                     code.indent()
+                elif expr.startswith('elif'):
+                    code.dedent()
+                    code.add_line("%s:" % expr)
                 elif expr.startswith("for"):
-                    words = expr.split()
-                    if words[2] != "in" or len(words) != 4:
-                        self._syntax_error("can not parse for", expr)
-                    self.loop_vars_stack.append(expr)
-                    item = words[1]
-                    items = words[3]
-                    # for i in range(3), for i in [1,2,3]
-                    if getattr(eval(items), "__iter__", None) is not None:
-                        code.add_line("for %s in %s:" %(item, items))
-                    else:
-                        code.add_line("for %s in c_%s:" %(item, items))
+                    function_name = 'f' + str(int(time.time()))
+                    self.for_loop_func.append(function_name)
+                    code.add_line("def %s():" % function_name)
+                    code.indent()
+                    code.add_line("for %s:" % expr[3:].strip())
                     code.indent()
                 elif expr.startswith("end"):
-                    self.loop_vars_stack.pop()
                     code.dedent()
+                    if expr == 'endfor':
+                        code.dedent()
+                        code.add_line(self.for_loop_func.pop() + "()")
             elif name == "comment":
                 continue                    
                          
         code.add_line("return ''.join(result)")
         code.dedent()
+        print(code)
         self._render_function = code.get_globals()["render_function"]
 
     def _generate_tokens(self, text):
@@ -107,9 +101,10 @@ class Monk:
         start = 0
         end = 0
         for m in matches:
-            end = m.span()[0]
+            span = m.span()
+            end = span[0]
             yield "html", text[start: end]
-            start = m.span()[1]
+            start = span[1]
             yield m.lastgroup, m.group(m.lastgroup)
         yield "html", text[start:]
 
@@ -117,17 +112,14 @@ class Monk:
         if "|" in expr:
             pipes = expr.split("|")
             code = pipes[0]
-            self.all_vars.add(code.strip())
             for pipe in pipes[1:]:
-                code = "%s(c_%s)" %(pipe.strip(), code.strip())
-                self.all_vars.add(pipe.strip())
-            code = "c_" + code
+                code = "%s(%s)" %(pipe.strip(), code.strip())
         elif "." in expr:
             dots = expr.split(".")
             code = dots[0]
-            code = "do_dots(c_%s, '%s')" % (code.strip(), "','".join(c.strip() for c in dots[1:]))
+            code = "do_dots(%s, '%s')" % (code.strip(), "','".join(c.strip() for c in dots[1:]))
         else:
-            code = "c_" + expr if len(self.loop_vars_stack) == 0 else expr
+            code = expr
         return code
 
     def _do_dots(self, value, *dots):
